@@ -96,7 +96,7 @@ impl Default for WebsocketEventEmitter {
 impl WebsocketEventEmitter {
     #[must_use]
     pub fn new() -> Self {
-        let (tx, _rx) = broadcast::channel(100);
+        let (tx, _rx) = broadcast::channel(2048);
         Self { tx }
     }
 
@@ -126,8 +126,17 @@ impl WebsocketEventEmitter {
     {
         let mut rx = self.tx.subscribe();
         let handle = spawn(async move {
-            while let Ok(event) = rx.recv().await {
-                callback(event);
+            loop {
+                match rx.recv().await {
+                    Ok(event) => {
+                        // println!("[receiver] got msg: {:?}", event);
+                        callback(event);
+                    }
+                    Err(e) => {
+                        println!("[receiver] channel closed: {:?}", e);
+                        break;
+                    }
+                }
             }
         });
         Subscription { handle }
